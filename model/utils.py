@@ -1,3 +1,5 @@
+# ./model/utils.py
+# ./networl => ./model/network
 import os
 from collections import OrderedDict
 

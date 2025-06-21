@@ -27,7 +27,7 @@ class BadNets(object):
     def add_trigger(self, img):
         '''
         添加trigger前图像必须是ndarray且shape必须==3(HWC)
-        通俗来讲，给图片贴白块
+        通俗来讲，给图片贴白，返回一个ndarray
         '''
         if not isinstance(img, np.ndarray):
             raise TypeError("Img should be np.ndarray. Got {}".format(type(img)))

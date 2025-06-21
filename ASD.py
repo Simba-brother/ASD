@@ -41,7 +41,7 @@ def main():
     # 指定配置文件参数
     parser.add_argument("--config", default="./config/baseline_asd.yaml")
     # 指定gpu参数
-    parser.add_argument("--gpu", default="0", type=str)
+    parser.add_argument("--gpu", default="1", type=str)
     # 指定复活点
     parser.add_argument(
         "--resume",
@@ -137,7 +137,7 @@ def main_worker(gpu, ngpus_per_node, args, config):
     # 图像主处理
     train_primary_transform = get_transform(config["transform"]["train"]["primary"]) # crop,flip
     # 图像剩余处理
-    train_remaining_transform = get_transform(config["transform"]["train"]["remaining"]) # toTensor,normalize
+    train_remaining_transform = get_transform(config["transform"]["train"]["remaining"]) # toTensor（不含有normalize）
     # 训练集图像处理
     train_transform = {
         "pre": pre_transform, # 预处理
@@ -155,8 +155,8 @@ def main_worker(gpu, ngpus_per_node, args, config):
     }
     logger.info("Test transformations:\n {}".format(test_transform))
 
-    logger.info("Load dataset from: {}".format(config["dataset_dir"]))
-    # 获得干净的训练数据
+    logger.info("Load dataset from: {}".format(config["dataset_dir"])) # /data/mml/dataset/cifar-10-batches-py
+    # 获得干净的训练数据(经过了常规的transform了)
     clean_train_data = get_dataset(
         config["dataset_dir"], train_transform, prefetch=config["prefetch"]
     )
@@ -164,7 +164,7 @@ def main_worker(gpu, ngpus_per_node, args, config):
     clean_test_data = get_dataset(
         config["dataset_dir"], test_transform, train=False, prefetch=config["prefetch"]
     )
-    
+    # ./saved_data/poison_idx.npy 存储中毒的样本的id
     poison_idx_path = os.path.join(args.saved_dir, "poison_idx.npy")
     if os.path.exists(poison_idx_path):
         poison_train_idx = np.load(poison_idx_path)
@@ -190,7 +190,7 @@ def main_worker(gpu, ngpus_per_node, args, config):
 
 
     logger.info("\n===Setup training===")
-    backbone = get_network(config["network"])
+    backbone = get_network(config["network"]) # resnet18_cifar10
     logger.info("Create network: {}".format(config["network"]))
     linear_model = LinearModel(backbone, backbone.feature_dim, config["num_classes"])
     linear_model = linear_model.cuda(gpu)
@@ -218,7 +218,7 @@ def main_worker(gpu, ngpus_per_node, args, config):
     logger.info("Create scheduler: {}".format(config["lr_scheduler"]))
     resumed_epoch, best_acc, best_epoch = load_state(
         linear_model,
-        args.resume,
+        args.resume, # default:False
         args.ckpt_dir,
         gpu,
         logger,
@@ -237,6 +237,7 @@ def main_worker(gpu, ngpus_per_node, args, config):
         if item['poison'] == 0:
             clean_data_info[str(item['target'])].append(idx)
         all_data_info[str(item['target'])].append(idx)
+    # clean seed
     indice = []
     for k, v in clean_data_info.items():
         choice_list = np.random.choice(v, replace=False, size=config["global"]["seed_num"]).tolist()
@@ -275,14 +276,15 @@ def main_worker(gpu, ngpus_per_node, args, config):
             record_list = poison_linear_record(
                 linear_model, poison_eval_loader, split_criterion
             )
-            meta_virtual_model = deepcopy(linear_model)
+            meta_virtual_model = deepcopy(linear_model) # 拷贝出一个防御模型的元模型
             meta_optimizer_config = config["meta"]["optimizer"] # Adam
+            # 指定特定的元模型的优化参数
             param_meta = [
                             {'params': meta_virtual_model.backbone.layer3.parameters()},
                             {'params': meta_virtual_model.backbone.layer4.parameters()},
                             {'params': meta_virtual_model.linear.parameters()}
-                        ]
-            if "Adam" in meta_optimizer_config:
+                        ] 
+            if "Adam" in meta_optimizer_config: # 是这个
                 meta_optimizer = torch.optim.Adam(param_meta, **meta_optimizer_config["Adam"])
             elif "SGD" in meta_optimizer_config:
                 meta_optimizer = torch.optim.SGD(param_meta, **meta_optimizer_config["SGD"])
@@ -335,7 +337,7 @@ def main_worker(gpu, ngpus_per_node, args, config):
             linear_model, poison_test_loader, criterion, logger
         )
 
-        if scheduler is not None:
+        if scheduler is not None: # 默认为None
             scheduler.step()
             logger.info(
                 "Adjust learning rate to {}".format(optimizer.param_groups[0]["lr"])
@@ -362,7 +364,7 @@ def main_worker(gpu, ngpus_per_node, args, config):
             if scheduler is not None:
                 saved_dict["scheduler_state_dict"] = scheduler.state_dict()
 
-            is_best = False
+            is_best = False # 所谓最好的就是clean test acc最好
             if clean_test_result["acc"] > best_acc:
                 is_best = True
                 best_acc = clean_test_result["acc"]
