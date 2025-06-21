@@ -54,14 +54,14 @@ def result2csv(result, log_dir):
         else:
             with open(file_path) as f:
                 df = pd.read_csv(f)
-                df = df.append(result[k], ignore_index=True)
+                df = df._append(result[k], ignore_index=True)
                 df.to_csv(file_path, index=False)
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value.
     
-    Modified from https://github.com/pytorch/examples/blob/master/imagenet/main.py
+    Modified from https://github.com/pytorch/examples/blob/master//main.py
     """
 
     def __init__(self, name, fmt=None):

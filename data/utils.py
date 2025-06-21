@@ -69,7 +69,7 @@ def get_transform(transform_config):
 
 def get_dataset(dataset_dir, transform, train=True, prefetch=False):
     if "cifar" in dataset_dir:
-        dataset = CIFAR10(
+        dataset = CIFAR10(  # 自己写的class
             dataset_dir, transform=transform, train=train, prefetch=prefetch
         )
     else:
@@ -94,19 +94,19 @@ def gen_poison_idx(dataset, target_label, poison_ratio=None):
     train = dataset.train
     for (i, t) in enumerate(dataset.targets):
         if train and poison_ratio is not None:
-            if random.random() < poison_ratio and t != target_label:
+            # 只对训练集进行poison_ratio比例污染
+            if random.random() < poison_ratio: # and t != target_label: 是否污染目标类别的样本，原始仓库是不污染目标类别的样本的。
                 poison_idx[i] = 1
         else:
             if t != target_label:
                 poison_idx[i] = 1
-
     return poison_idx
 
 
 def get_bd_transform(bd_config):
     if "badnets" in bd_config:
-        bd_transform = BadNets(bd_config["badnets"]["trigger_path"])
+        bd_transform = BadNets(bd_config["badnets"]["trigger_path"]) # ./data/trigger/cifar_2.png
     else:
         raise ValueError("Backdoor {} is not supported.".format(bd_config))
 
-    return bd_transform
+    return bd_transform # 本质是一个BadNets类（data/backdoor.py/BadNets）的实例

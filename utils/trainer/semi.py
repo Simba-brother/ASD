@@ -54,7 +54,7 @@ def mixmatch_train(
     model.train()
     gpu = next(model.parameters()).device
     start = time.time()
-    for batch_idx in range(kwargs["train_iteration"]):
+    for batch_idx in range(kwargs["train_iteration"]): # 1024 个 batch
         try:
             xbatch = next(xiter)
             xinput, xtarget = xbatch["img"], xbatch["target"]
@@ -72,6 +72,7 @@ def mixmatch_train(
             uinput1, uinput2 = ubatch["img1"], ubatch["img2"]
 
         batch_size = xinput.size(0)
+        # xtarget one-hot
         xtarget = torch.zeros(batch_size, kwargs["num_classes"]).scatter_(
             1, xtarget.view(-1, 1).long(), 1
         )
@@ -185,6 +186,7 @@ def poison_linear_record(model, loader, criterion):
     ]
 
     model.eval()
+    # 判断模型是在CPU还是GPU上
     gpu = next(model.parameters()).device
     for _, batch in enumerate(loader):
         data = batch["img"].cuda(gpu, non_blocking=True)

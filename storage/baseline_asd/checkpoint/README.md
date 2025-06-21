@@ -1,1 +1,0 @@
-Download latest_model.pt from [Google Drive](https://drive.google.com/file/d/1uGpyOWakQZlhDG64Dg92smCoBspvVfdX/view?usp=share_link).

@@ -17,7 +17,7 @@ class RCELoss(nn.Module):
         prob = torch.clamp(prob, min=1e-7, max=1.0)
         one_hot = F.one_hot(target, self.num_classes).float()
         one_hot = torch.clamp(one_hot, min=1e-4, max=1.0)
-        loss = -1 * torch.sum(prob * torch.log(one_hot), dim=-1)
+        loss = -1 * torch.sum(prob * torch.log(one_hot), dim=-1) # 此处为inverse
         if self.reduction == "mean":
             loss = loss.mean()
 
@@ -52,8 +52,8 @@ class MixMatchLoss(nn.Module):
 
     def __init__(self, rampup_length, lambda_u=75):
         super(MixMatchLoss, self).__init__()
-        self.rampup_length = rampup_length
-        self.lambda_u = lambda_u
+        self.rampup_length = rampup_length # 120
+        self.lambda_u = lambda_u # 15
         self.current_lambda_u = lambda_u
 
     def linear_rampup(self, epoch):

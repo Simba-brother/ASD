@@ -33,7 +33,7 @@ transform:
 backdoor:
   poison_ratio: 0.1
   target_label: 1
-  badnets: # BadNets攻击
+  badnets:
     trigger_path: ./data/trigger/cifar_2.png # 左上角白点
 loader:
   batch_size: 128

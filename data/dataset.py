@@ -21,7 +21,7 @@ class PoisonLabelDataset(Dataset):
         self.dataset = copy.deepcopy(dataset)
         self.train = self.dataset.train
         if self.train:
-            self.data = self.dataset.data
+            self.data = self.dataset.data # 读的原生数据
             self.targets = self.dataset.targets
             self.poison_idx = poison_idx
         else:
@@ -29,9 +29,9 @@ class PoisonLabelDataset(Dataset):
             self.data = self.dataset.data[np.nonzero(poison_idx)[0]]
             self.targets = self.dataset.targets[np.nonzero(poison_idx)[0]]
             self.poison_idx = poison_idx[poison_idx == 1]
-        self.pre_transform = self.dataset.pre_transform
-        self.primary_transform = self.dataset.primary_transform
-        self.remaining_transform = self.dataset.remaining_transform
+        self.pre_transform = self.dataset.pre_transform # 预处理
+        self.primary_transform = self.dataset.primary_transform # 主处理
+        self.remaining_transform = self.dataset.remaining_transform # 剩余处理
         self.prefetch = self.dataset.prefetch
         if self.prefetch:
             self.mean, self.std = self.dataset.mean, self.dataset.std
@@ -42,14 +42,15 @@ class PoisonLabelDataset(Dataset):
     def __getitem__(self, index):
         if isinstance(self.data[index], str):
             with open(self.data[index], "rb") as f:
-                img = np.array(Image.open(f).convert("RGB"))
+                img = np.array(Image.open(f).convert("RGB")) #ndarray,shape:HWC
         else:
             img = self.data[index]
         target = self.targets[index]
-        poison = 0
+        poison = 0 # 是否被污染
         origin = target  # original target
 
         if self.poison_idx[index] == 1:
+            # 此时参数img是原生图像ndarray(HWC)
             img = self.bd_first_augment(img, bd_transform=self.bd_transform)
             target = self.target_label
             poison = 1
@@ -62,24 +63,51 @@ class PoisonLabelDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+    # def bd_first_augment(self, img, bd_transform=None):
+    #     # Pre-processing transformation (HWC ndarray->HWC ndarray).
+    #     img = Image.fromarray(img) # PIL
+    #     img = self.pre_transform(img) 
+    #     img = np.array(img) # 在添加trigger必须先ndarray(HWC)
+    #     # Backdoor transformation (HWC ndarray->HWC ndarray).
+    #     if bd_transform is not None:
+    #         img = bd_transform(img)
+    #     # 添加trigger成功
+    #     # Primary and the remaining transformations (HWC ndarray->CHW tensor).
+    #     img = Image.fromarray(img)
+        
+    #     img = self.primary_transform(img) # random_crop,random_horizontal_flip
+    #     img = self.remaining_transform(img) # to_tensor, normalize
+
+    #     if self.prefetch:
+    #         # HWC ndarray->CHW tensor with C=3.
+    #         img = np.rollaxis(np.array(img, dtype=np.uint8), 2)
+    #         img = torch.from_numpy(img)
+
+    #     return img
+    
     def bd_first_augment(self, img, bd_transform=None):
+        '''
+        args:
+            img:原生的图像,shape:HWC,type:ndarray
+        '''
         # Pre-processing transformation (HWC ndarray->HWC ndarray).
-        img = Image.fromarray(img)
-        img = self.pre_transform(img)
-        img = np.array(img)
+        img = Image.fromarray(img) # toPIL
+        img = self.pre_transform(img) 
+        # 裁剪和翻转 random_crop,random_horizontal_flip
+        img = self.primary_transform(img) # PIL
+        # 添加trigger
+        img = np.array(img) # 在添加trigger必须先ndarray(HWC)
         # Backdoor transformation (HWC ndarray->HWC ndarray).
         if bd_transform is not None:
             img = bd_transform(img)
         # Primary and the remaining transformations (HWC ndarray->CHW tensor).
         img = Image.fromarray(img)
-        img = self.primary_transform(img)
-        img = self.remaining_transform(img)
+        img = self.remaining_transform(img) # to_tensor, normalize
 
         if self.prefetch:
             # HWC ndarray->CHW tensor with C=3.
             img = np.rollaxis(np.array(img, dtype=np.uint8), 2)
             img = torch.from_numpy(img)
-
         return img
 
 

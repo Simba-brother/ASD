@@ -24,17 +24,17 @@ class CIFAR10(Dataset):
 
     def __init__(self, root, transform=None, train=True, prefetch=False):
         self.train = train
-        self.pre_transform = transform["pre"]
-        self.primary_transform = transform["primary"]
+        self.pre_transform = transform["pre"] # 预处理
+        self.primary_transform = transform["primary"] # 主处理
         if prefetch:
             self.remaining_transform, self.mean, self.std = prefetch_transform(
                 transform["remaining"]
             )
         else:
-            self.remaining_transform = transform["remaining"]
+            self.remaining_transform = transform["remaining"] # 剩余处理
         if train:
             data_list = [
-                "data_batch_1",
+                "data_batch_1", # file_name
                 "data_batch_2",
                 "data_batch_3",
                 "data_batch_4",
@@ -49,12 +49,12 @@ class CIFAR10(Dataset):
         for file_name in data_list:
             file_path = os.path.join(root, file_name)
             with open(file_path, "rb") as f:
-                entry = pickle.load(f, encoding="latin1")
+                entry = pickle.load(f, encoding="latin1") # PIL
             data.append(entry["data"])
             targets.extend(entry["labels"])
         # Convert data (List) to NHWC (np.ndarray) works with PIL Image.
-        data = np.vstack(data).reshape(-1, 3, 32, 32).transpose((0, 2, 3, 1))
-        self.data = data
+        data = np.vstack(data).reshape(-1, 3, 32, 32).transpose((0, 2, 3, 1)) # ndarray:BHWC
+        self.data = data # ndarray
         self.targets = np.asarray(targets)
 
     def __getitem__(self, index):
