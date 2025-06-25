@@ -1,6 +1,7 @@
 import argparse
 import os
 import shutil
+import time
 from copy import deepcopy
 
 import numpy as np
@@ -8,8 +9,9 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
-
+from utils.timer import convert_to_hms
 from data.dataset import PoisonLabelDataset, MixMatchDataset
+from model.resnet import ResNet
 from data.utils import (
     gen_poison_idx,
     get_bd_transform,
@@ -41,7 +43,7 @@ def main():
     # 指定配置文件参数
     parser.add_argument("--config", default="./config/baseline_asd.yaml")
     # 指定gpu参数
-    parser.add_argument("--gpu", default="1", type=str)
+    parser.add_argument("--gpu", default="0", type=str)
     # 指定复活点
     parser.add_argument(
         "--resume",
@@ -106,8 +108,12 @@ def main():
     else:
         print("Training on a single GPU: {}.".format(args.gpu))
         main_worker(0, ngpus_per_node, args, config)
-    
+    start_time = time.perf_counter()
     main_worker(0, ngpus_per_node, args, config)
+    end_time = time.perf_counter()
+    cost_time = end_time - start_time
+    hours, minutes, seconds = convert_to_hms(cost_time)
+    print(f"共耗时:{hours}时{minutes}分{seconds:.3f}秒")
 
 def main_worker(gpu, ngpus_per_node, args, config):
     set_seed(**config["seed"]) # 基于配置文件，seed: 100 deterministic: False benchmark: True
@@ -127,11 +133,12 @@ def main_worker(gpu, ngpus_per_node, args, config):
     bd_config = config["backdoor"]
     logger.info("Load backdoor config:\n{}".format(bd_config))
     # data/utils.py
+    # bd_transform返回的是ndarray(HWC)
     bd_transform = get_bd_transform(bd_config) # 本质是一个BadNets类（data/backdoor.py/BadNets）的实例
     # 攻击目标类
-    target_label = bd_config["target_label"] # 1
+    target_label = bd_config["target_label"] # 3
     # 污染样本比例
-    poison_ratio = bd_config["poison_ratio"] # 0.1
+    poison_ratio = bd_config["poison_ratio"] # 0.05
     # 图像预处理
     pre_transform = get_transform(config["transform"]["pre"]) # null
     # 图像主处理
@@ -190,13 +197,17 @@ def main_worker(gpu, ngpus_per_node, args, config):
 
 
     logger.info("\n===Setup training===")
+    '''
     backbone = get_network(config["network"]) # resnet18_cifar10
     logger.info("Create network: {}".format(config["network"]))
     linear_model = LinearModel(backbone, backbone.feature_dim, config["num_classes"])
     linear_model = linear_model.cuda(gpu)
     if args.distributed:
         linear_model = DistributedDataParallel(linear_model, device_ids=[gpu])
-
+    '''
+    linear_model = ResNet(18,num_classes=10) # 这是OurResNet18模型
+    linear_model = linear_model.cuda(gpu)
+    
 
     criterion = get_criterion(config["criterion"]) # cross_entropy
     criterion = criterion.cuda(gpu)
@@ -233,7 +244,8 @@ def main_worker(gpu, ngpus_per_node, args, config):
     for i in range(config['num_classes']): # 10
         clean_data_info[str(i)] = []
         all_data_info[str(i)] = []
-    for idx, item in enumerate(poison_train_data):
+    for idx in range(len(poison_train_data)):
+        item = poison_train_data[idx]
         if item['poison'] == 0:
             clean_data_info[str(item['target'])].append(idx)
         all_data_info[str(item['target'])].append(idx)
@@ -279,11 +291,18 @@ def main_worker(gpu, ngpus_per_node, args, config):
             meta_virtual_model = deepcopy(linear_model) # 拷贝出一个防御模型的元模型
             meta_optimizer_config = config["meta"]["optimizer"] # Adam
             # 指定特定的元模型的优化参数
+            '''
             param_meta = [
                             {'params': meta_virtual_model.backbone.layer3.parameters()},
                             {'params': meta_virtual_model.backbone.layer4.parameters()},
                             {'params': meta_virtual_model.linear.parameters()}
                         ] 
+            '''
+            param_meta = [  
+                            {'params': meta_virtual_model.layer3.parameters()},
+                            {'params': meta_virtual_model.layer4.parameters()},
+                            {'params': meta_virtual_model.classifier.parameters()}
+                        ]
             if "Adam" in meta_optimizer_config: # 是这个
                 meta_optimizer = torch.optim.Adam(param_meta, **meta_optimizer_config["Adam"])
             elif "SGD" in meta_optimizer_config:

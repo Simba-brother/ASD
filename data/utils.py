@@ -1,11 +1,11 @@
 import random
-
+import torch
 import numpy as np
 import torchvision.transforms as transforms
 from PIL import ImageFilter
 from torch.utils.data import DataLoader
 
-from .backdoor import BadNets
+from .backdoor import BadNets,BadNets_2
 from .cifar import CIFAR10
 from .prefetch import PrefetchLoader
 
@@ -106,6 +106,15 @@ def gen_poison_idx(dataset, target_label, poison_ratio=None):
 def get_bd_transform(bd_config):
     if "badnets" in bd_config:
         bd_transform = BadNets(bd_config["badnets"]["trigger_path"]) # ./data/trigger/cifar_2.png
+
+        '''
+        pattern = torch.zeros((32, 32), dtype=torch.uint8)
+        pattern[4:6, 4:6] = 255 # pattern[-3:, -3:] = 255 (右下角)，pattern[4:6, 4:6] = 255 (ASD trigger图像白点像素位置)
+        weight = torch.zeros((32, 32), dtype=torch.float32)
+        weight[4:6, 4:6] = 1.0 # weight[-3:, -3:] = 255 (右下角)，weight[4:6, 4:6] = 255 (ASD trigger图像白点像素位置)
+        bd_transform = BadNets_2(pattern, weight)
+        '''
+        
     else:
         raise ValueError("Backdoor {} is not supported.".format(bd_config))
 

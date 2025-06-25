@@ -1,6 +1,6 @@
 ---
 seed:
-  seed: 100
+  seed: 4
   deterministic: False
   benchmark: True
 dataset_dir: /data/mml/dataset/cifar-10-batches-py
@@ -9,7 +9,7 @@ saved_dir: ./saved_data
 storage_dir: ./storage
 prefetch: False  # turn on prefetch mode will speedup io
 transform: # 是指在bd_transform之前的tranform
-  pre: null 
+  pre: null
   train:
     primary:
       random_crop:
@@ -33,10 +33,10 @@ transform: # 是指在bd_transform之前的tranform
       #   mean: [0.4914, 0.4822, 0.4465]
       #   std: [0.2023, 0.1994, 0.2010]
 backdoor:
-  poison_ratio: 0.1
-  target_label: 1
+  poison_ratio: 0.05
+  target_label: 3
   badnets: # BadNets攻击
-    trigger_path: ./data/trigger/cifar_2.png # 左上角白点
+    trigger_path: ./data/trigger/3*3_youxiajiao.png # 左上白点
 loader:
   batch_size: 128
   num_workers: 4

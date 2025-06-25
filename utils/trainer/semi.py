@@ -176,13 +176,11 @@ def poison_linear_record(model, loader, criterion):
     poison_record = Record("poison", num_data)
     origin_record = Record("origin", num_data)
     loss_record = Record("loss", num_data)
-    feature_record = Record("feature", (num_data, model.backbone.feature_dim))
     record_list = [
         target_record,
         poison_record,
         origin_record,
         loss_record,
-        feature_record,
     ]
 
     model.eval()
@@ -192,8 +190,11 @@ def poison_linear_record(model, loader, criterion):
         data = batch["img"].cuda(gpu, non_blocking=True)
         target = batch["target"].cuda(gpu, non_blocking=True)
         with torch.no_grad():
+            '''
             feature = model.backbone(data)
             output = model.linear(feature)
+            '''
+            output = model(data)
         criterion.reduction = "none"
         raw_loss = criterion(output, target)
 
@@ -201,7 +202,5 @@ def poison_linear_record(model, loader, criterion):
         poison_record.update(batch["poison"])
         origin_record.update(batch["origin"])
         loss_record.update(raw_loss.cpu())
-        feature_record.update(feature.cpu())
-
     return record_list
 

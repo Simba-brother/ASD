@@ -42,7 +42,7 @@ class PoisonLabelDataset(Dataset):
     def __getitem__(self, index):
         if isinstance(self.data[index], str):
             with open(self.data[index], "rb") as f:
-                img = np.array(Image.open(f).convert("RGB")) #ndarray,shape:HWC
+                img = np.array(Image.open(f).convert("RGB")) #file->Image->ndarray,shape:HWC
         else:
             img = self.data[index]
         target = self.targets[index]
@@ -88,27 +88,27 @@ class PoisonLabelDataset(Dataset):
     def bd_first_augment(self, img, bd_transform=None):
         '''
         args:
-            img:原生的图像,shape:HWC,type:ndarray
+            img(ndarray):原生的图像,shape:HWC.
         '''
         # Pre-processing transformation (HWC ndarray->HWC ndarray).
-        img = Image.fromarray(img) # toPIL
+        img = Image.fromarray(img) # ndarray -> PIL.Image
         img = self.pre_transform(img) 
         # 裁剪和翻转 random_crop,random_horizontal_flip
-        img = self.primary_transform(img) # PIL
-        # 添加trigger
+        img = self.primary_transform(img) # PIL.Image,shape:HWC
         img = np.array(img) # 在添加trigger必须先ndarray(HWC)
+        # 添加trigger
         # Backdoor transformation (HWC ndarray->HWC ndarray).
         if bd_transform is not None:
             img = bd_transform(img)
         # Primary and the remaining transformations (HWC ndarray->CHW tensor).
         img = Image.fromarray(img)
-        img = self.remaining_transform(img) # to_tensor, normalize
+        img = self.remaining_transform(img) # tensor, shape:CHW
 
         if self.prefetch:
             # HWC ndarray->CHW tensor with C=3.
             img = np.rollaxis(np.array(img, dtype=np.uint8), 2)
-            img = torch.from_numpy(img)
-        return img
+            img = torch.from_numpy(img) # tensor,shape:CHW
+        return img # tensor, shape:CHW
 
 
 class MixMatchDataset(Dataset):
